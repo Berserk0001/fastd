@@ -2,7 +2,7 @@ import fastify from 'fastify';
 import proxy from './proxy.js';
 import express from '@fastify/express';
 
-const fastify = fastify({
+const server = fastify({
   logger: false
 });
 
@@ -10,10 +10,10 @@ const fastify = fastify({
   
   async function start() {
     // Register the express plugin
-    await fastify.register(express);
+    await server.register(express);
   
     // Use Express middleware for handling the proxy
-    fastify.use('/', (req, res, next) => {
+    server.use('/', (req, res, next) => {
       if (req.path === '/') {
         return proxy(req, res);
       }
@@ -21,14 +21,14 @@ const fastify = fastify({
     });
   
     // Handle favicon.ico separately
-    fastify.use('/favicon.ico', (req, res) => {
+    server.use('/favicon.ico', (req, res) => {
       res.status(204).end();
     });
   
     // Start the server
-    fastify.listen({host: '0.0.0.0' , port: PORT }, function (err, address) {
+    server.listen({host: '0.0.0.0' , port: PORT }, function (err, address) {
     if (err) {
-      fastify.log.error(err)
+      server.log.error(err)
       process.exit(1)
     }
   });
