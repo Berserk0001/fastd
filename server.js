@@ -5,7 +5,7 @@ const server = fastify({
   logger: true
 });
 
-server.get('/proxy', proxy); // Potential issue: Route registration
+server.get('/', proxy); // Potential issue: Route registration
 
 server.listen(3000, (err, address) => {
   if (err) {
