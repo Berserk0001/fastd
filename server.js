@@ -2,7 +2,7 @@ import fastify from 'fastify';
 import proxy from './proxy.js';
 
 const server = fastify({
-  logger: true
+  logger: false
 });
 
 server.get('/', proxy); // Potential issue: Route registration
