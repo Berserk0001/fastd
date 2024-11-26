@@ -1,5 +1,6 @@
 import fastify from 'fastify';
 import proxy from './proxy.js';
+import express from '@fastify/express';
 
 const fastify = fastify({
   logger: false
