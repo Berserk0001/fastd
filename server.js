@@ -5,12 +5,14 @@ const server = fastify({
   logger: false
 });
 
+const PORT = process.env.PORT || 8080;
+
 server.get('/', proxy); // Potential issue: Route registration
 
-server.listen(3000, (err, address) => {
-  if (err) {
-    server.log.error(err); // Potential issue: Server initialization error
+try {
+    server.listen({ host: '0.0.0.0', port: PORT });
+    console.log(`Listening on ${PORT}`);
+  } catch (err) {
+    server.log.error(err);
     process.exit(1);
   }
-  server.log.info(`Server listening at ${address}`);
-});
