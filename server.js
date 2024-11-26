@@ -1,9 +1,16 @@
-import app from "./index.js";
-import http from "http";
+import fastify from 'fastify';
+import proxy from './proxy.js';
 
-const PORT = process.env.PORT || 8080;
+const server = fastify({
+  logger: true
+});
 
-const server = http.createServer(app);
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+server.get('/proxy', proxy); // Potential issue: Route registration
+
+server.listen(3000, (err, address) => {
+  if (err) {
+    server.log.error(err); // Potential issue: Server initialization error
+    process.exit(1);
+  }
+  server.log.info(`Server listening at ${address}`);
 });
