@@ -1,5 +1,5 @@
 import fastify from 'fastify';
-import proxy from './proxy.js';
+import proxy from './proxy1.js';
 import express from '@fastify/express';
 
 const server = fastify({
