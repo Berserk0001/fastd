@@ -182,5 +182,6 @@ function _onRequestResponse(origin, req, res) {
 
     return origin.data.pipe(res);
   }
+}
 
 export default proxy;
