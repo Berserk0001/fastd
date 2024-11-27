@@ -69,7 +69,7 @@ function compress(req, res, input) {
     limitInputPixels: false,
   });
 
-  input.data
+  input.body
     .pipe(
       sharpInstance
         .resize(null, 16383, {
