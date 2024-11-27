@@ -145,12 +145,12 @@ function _onRequestError(req, res, err) {
 }
 
 function _onRequestResponse(origin, req, res) {
-  if (origin.statusCode >= 400)
-    return redirect(req, res);
-
-  // handle redirects
-  if (origin.statusCode >= 300 && origin.headers.location)
-    return redirect(req, res);
+  if (
+        origin.status >= 400 ||
+        (origin.status >= 300 && origin.headers.location)
+      ) {
+        return redirect(req, res);
+      }
 
   copyHeaders(origin, res);
   res.setHeader("content-encoding", "identity");
