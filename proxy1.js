@@ -70,7 +70,7 @@ function compress(req, res, input) {
     limitInputPixels: false,
   });
 
-  input
+  input.body
     .pipe(
       sharpInstance
         .resize(null, 16383, {
@@ -140,7 +140,7 @@ async function proxy(req, res) {
     req.params.originSize = parseInt(response.headers.get("content-length"), 10) || 0;
 
     if (shouldCompress(req)) {
-      return compress(req, res, response.body);
+      return compress(req, res, response);
     } else {
       res.setHeader("x-proxy-bypass", 1);
       ["accept-ranges", "content-type", "content-length", "content-range"].forEach((header) => {
