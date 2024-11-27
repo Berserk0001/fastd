@@ -1,12 +1,8 @@
 "use strict";
 
-/*
- * proxy.js
- * The bandwidth hero proxy handler with integrated modules.
- */
 import sharp from "sharp";
 import { availableParallelism } from 'os';
-import { Readable } from 'stream'; // Import Readable stream from Node.js
+import { Readable } from 'stream'; // Import Node.js Readable stream
 import pick from "./pick.js";
 
 const DEFAULT_QUALITY = 40;
@@ -58,9 +54,24 @@ function redirect(req, res) {
 
 // Helper: Convert fetch's ReadableStream to a Node.js Readable stream
 function convertReadableStreamToNodeReadable(fetchStream) {
-  const { readable, writable } = new TransformStream();
-  fetchStream.pipeTo(writable);
-  return Readable.toWeb(readable); // Convert to Node.js Readable stream
+  return new Readable({
+    read() {
+      const reader = fetchStream.getReader();
+      const push = () => {
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            this.push(null);
+          } else {
+            this.push(value);
+            push();
+          }
+        }).catch((err) => {
+          this.emit('error', err);
+        });
+      };
+      push();
+    }
+  });
 }
 
 // Helper: Compress
