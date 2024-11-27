@@ -1,12 +1,12 @@
 import fastify from 'fastify';
-import proxy from './proxy.js';
+import proxy from './proxy1.js';
 import express from '@fastify/express';
 
 const server = fastify({
   logger: false
 });
 
-  const PORT = process.env.PORT || 8080;
+  const PORT = process.env.PORT || 3000;
   
   async function start() {
     // Register the express plugin
