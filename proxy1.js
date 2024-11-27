@@ -6,8 +6,9 @@
  */
 import sharp from "sharp";
 import { availableParallelism } from 'os';
-
+import { Readable } from 'stream'; // Import Readable stream from Node.js
 import pick from "./pick.js";
+
 const DEFAULT_QUALITY = 40;
 const MIN_COMPRESS_LENGTH = 1024;
 const MIN_TRANSPARENT_COMPRESS_LENGTH = MIN_COMPRESS_LENGTH * 100;
@@ -55,6 +56,13 @@ function redirect(req, res) {
   res.status(302).end();
 }
 
+// Helper: Convert fetch's ReadableStream to a Node.js Readable stream
+function convertReadableStreamToNodeReadable(fetchStream) {
+  const { readable, writable } = new TransformStream();
+  fetchStream.pipeTo(writable);
+  return Readable.toWeb(readable); // Convert to Node.js Readable stream
+}
+
 // Helper: Compress
 function compress(req, res, input) {
   const format = "jpeg";
@@ -69,12 +77,10 @@ function compress(req, res, input) {
     limitInputPixels: false,
   });
 
-  input.body
+  input
     .pipe(
       sharpInstance
-        .resize(null, 16383, {
-          withoutEnlargement: true
-        })
+        .resize(null, 16383, { withoutEnlargement: true })
         .grayscale(req.params.grayscale)
         .toFormat(format, {
           quality: req.params.quality,
@@ -95,7 +101,6 @@ function compress(req, res, input) {
 
 // Main: Proxy
 async function proxy(req, res) {
-  // Extract and validate parameters from the request
   let url = req.query.url;
   if (!url) return res.send("bandwidth-hero-proxy");
 
@@ -132,20 +137,16 @@ function _onRequestError(req, res, err) {
   // Ignore invalid URL.
   if (err.code === "ERR_INVALID_URL") return res.status(400).send("Invalid URL");
 
-  /*
-   * When there's a real error, Redirect then destroy the stream immediately.
-   */
+  // When there's a real error, redirect then destroy the stream immediately.
   redirect(req, res);
   console.error(err);
 }
 
 function _onRequestResponse(origin, req, res) {
-  if (origin.status >= 400)
-    return redirect(req, res);
+  if (origin.status >= 400) return redirect(req, res);
 
-  // handle redirects
-  if (origin.status >= 300 && origin.headers.get("location"))
-    return redirect(req, res);
+  // Handle redirects
+  if (origin.status >= 300 && origin.headers.get("location")) return redirect(req, res);
 
   copyHeaders(origin, res);
   res.setHeader("content-encoding", "identity");
@@ -155,27 +156,21 @@ function _onRequestResponse(origin, req, res) {
   req.params.originType = origin.headers.get("content-type") || "";
   req.params.originSize = origin.headers.get("content-length") || "0";
 
-  //origin.body.on('error', _ => req.socket.destroy());
+  // Handle the body stream
+  const bodyStream = convertReadableStreamToNodeReadable(origin.body); // Convert to Node.js stream
 
   if (shouldCompress(req)) {
-    /*
-     * sharp support stream. So pipe it.
-     */
-    return compress(req, res, origin);
+    // Pipe the body stream into sharp for compression
+    return compress(req, res, bodyStream);
   } else {
-    /*
-     * Downloading then uploading the buffer to the client is not a good idea though,
-     * It would better if you pipe the incoming buffer to client directly.
-     */
-
+    // If compression is not required, directly pipe the body to the response
     res.setHeader("x-proxy-bypass", 1);
-
     for (const headerName of ["accept-ranges", "content-type", "content-length", "content-range"]) {
       if (origin.headers.has(headerName))
         res.setHeader(headerName, origin.headers.get(headerName));
     }
 
-    return origin.body.pipe(res);
+    return bodyStream.pipe(res); // Pipe the stream directly to the response
   }
 }
 
