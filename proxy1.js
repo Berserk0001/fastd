@@ -4,7 +4,6 @@
  * proxy.js
  * The bandwidth hero proxy handler with integrated modules.
  */
-import fetch from "node-fetch";
 import sharp from "sharp";
 import { availableParallelism } from 'os';
 
@@ -70,7 +69,7 @@ function compress(req, res, input) {
     limitInputPixels: false,
   });
 
-  input
+  input.data
     .pipe(
       sharpInstance
         .resize(null, 16383, {
@@ -79,7 +78,7 @@ function compress(req, res, input) {
         .grayscale(req.params.grayscale)
         .toFormat(format, {
           quality: req.params.quality,
-          chromaSubsampling: '4:4:4',
+          chromaSubsampling: '4:4:4', // Default chroma subsampling
           effort: 0,
         })
         .on("error", () => redirect(req, res))
@@ -115,47 +114,48 @@ async function proxy(req, res) {
   }
 
   try {
-    const origin = await fetch(req.params.url, {
+    const originResponse = await fetch(req.params.url, {
       headers: {
         ...pick(req.headers, ["cookie", "dnt", "referer", "range"]),
         "user-agent": "Bandwidth-Hero Compressor",
         "x-forwarded-for": req.headers["x-forwarded-for"] || req.ip,
         via: "1.1 bandwidth-hero",
-      },
-      redirect: 'follow',
-      follow: 4,
+      }
     });
 
     // Handle non-2xx or redirect responses.
     if (
-      origin.status >= 400 ||
-      (origin.status >= 300 && origin.headers.get('location'))
+      originResponse.status >= 400 ||
+      (originResponse.status >= 300 && originResponse.headers.get("location"))
     ) {
       return redirect(req, res);
     }
 
     // Set headers and stream response.
-    copyHeaders(origin.headers, res);
+    copyHeaders(originResponse, res);
     res.setHeader("content-encoding", "identity");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
-    req.params.originType = origin.headers.get("content-type") || "";
-    req.params.originSize = origin.headers.get("content-length") || "0";
+
+    req.params.originType = originResponse.headers.get("content-type") || "";
+    req.params.originSize = originResponse.headers.get("content-length") || "0";
+
+    const responseBodyStream = originResponse.body;
 
     if (shouldCompress(req)) {
-      return compress(req, res, origin.body);
+      return compress(req, res, { data: responseBodyStream });
     } else {
       res.setHeader("x-proxy-bypass", 1);
       ["accept-ranges", "content-type", "content-length", "content-range"].forEach((header) => {
-        if (origin.headers.get(header)) {
-          res.setHeader(header, origin.headers.get(header));
+        if (originResponse.headers.has(header)) {
+          res.setHeader(header, originResponse.headers.get(header));
         }
       });
-      return origin.body.pipe(res);
+      return responseBodyStream.pipe(res);
     }
   } catch (err) {
-    if (err.type === "invalid-url") {
+    if (err.code === "ERR_INVALID_URL") {
       return res.status(400).send("Invalid URL");
     }
     redirect(req, res);
